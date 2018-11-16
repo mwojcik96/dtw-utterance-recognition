@@ -1,5 +1,6 @@
 import glob
 import wave, struct
+from collections import Counter
 
 import librosa
 import matplotlib.pyplot as plt
@@ -22,13 +23,29 @@ def compute_mfcc_from_file(file):
     # plt.show()
     time_characteristic = np.array(time_plot, dtype=np.float32)
     # mfcc_feat = python_speech_features.mfcc(rate, time_characteristic)
-    mfcc = librosa.feature.mfcc(y=time_characteristic, sr=16000, n_mfcc=1)
+    mfcc = librosa.feature.mfcc(y=time_characteristic, sr=16000, n_mfcc=5)
     return mfcc
 
 
+def foo(train_mfccs, which_mfcc: int):
+    train_mfccs = [mfccs[which_mfcc] for mfccs in train_mfccs]
+    min_mfcc = 10000000
+    min_label = ""
+    print(test_set)
+    xd = []
+    for sample in test_set:
+        for mfccs, label in zip(train_mfccs, labels):
+            new_nfcc = dtw(mfccs, compute_mfcc_from_file(sample)[0])
+            xd.append((new_nfcc, label))
+            if new_nfcc < min_mfcc:
+                min_mfcc = new_nfcc
+                min_label = label
+        lul = sorted(xd, key=lambda x: x[0])
+        print(lul)
+        print(sample, Counter(elem[1] for elem in lul[:7]))
+
+
 if __name__ == '__main__':
-    nn = KNeighborsClassifier(n_neighbors=3, algorithm='ball_tree',
-                         metric=dtw)
     train_set = []
     test_set = []
     labels = []
@@ -38,21 +55,17 @@ if __name__ == '__main__':
         else:
             train_set.append(file)
             labels.append(file.split("/")[-2])
-    print(train_set[0])
+    # print(train_set[0])
     train_mfccs = []
     for file in train_set:
         train_mfccs.append(compute_mfcc_from_file(file))
-    print(train_mfccs[0][0], train_mfccs[1][0])
-    print(dtw(train_mfccs[0][0], train_mfccs[1][0]))
-    train_mfccs = [mfccs[0] for mfccs in train_mfccs]
-    min_mfcc = 10000000
-    min_label = ""
-    print(test_set)
-    for sample in test_set:
-        for mfccs, label in zip(train_mfccs, labels):
-            new_nfcc = dtw(mfccs, compute_mfcc_from_file(sample)[0])
-            if new_nfcc < min_mfcc:
-                min_mfcc = new_nfcc
-                min_label = label
-        print(min_label, sample)
+    # train_mfccs: first dimension -- how many examples = 252. second dimension -- 2, how many mfcc, third dimension --
+    # 24, how many windows
+    print(train_mfccs)
+    print(len(train_mfccs))
+    print(len(train_mfccs[0][0]))
+    # print(train_mfccs[0][0], train_mfccs[1][0])
+    # print(dtw(train_mfccs[0][0], train_mfccs[1][0]))
+    for i in range(5):
+        foo(train_mfccs, i)
 
