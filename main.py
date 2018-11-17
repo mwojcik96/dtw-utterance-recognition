@@ -1,11 +1,10 @@
 import glob
-import wave, struct
+import struct
+import wave
 from collections import Counter
 
 import librosa
-import matplotlib.pyplot as plt
 import numpy as np
-import python_speech_features
 from sklearn.neighbors import KNeighborsClassifier
 from tslearn.metrics import dtw
 
@@ -33,8 +32,8 @@ def compute_spectral_roloff(file):
     return librosa.feature.spectral_rolloff(chars, sr=16000)[0]
 
 
-def foo(train_mfccs_, which_mfcc: int, train_roloffs):
-    train_mfccs = [mfccs[0] for mfccs in train_mfccs_]
+def foo(train_mfccs_, train_roloffs):
+    train_mfccs = np.array([mfccs[0] for mfccs in train_mfccs_])
     mfccs_ = []
     for sample in test_set:
         for mfccs, roloff, label in zip(train_mfccs, train_roloffs, labels):
@@ -68,5 +67,5 @@ if __name__ == '__main__':
     # print(train_mfccs[0][0], train_mfccs[1][0])
     # print(dtw(train_mfccs[0][0], train_mfccs[1][0]))
     # for i in range(5):
-    foo(train_mfccs, 0, train_roloffs)
+    foo(train_mfccs, train_roloffs)
 
