@@ -11,7 +11,7 @@ from tslearn.metrics import dtw
 
 def compute_mfcc_from_file(file):
     time_characteristic = create_time_characteristics_of_a_file(file)
-    mfcc = librosa.feature.mfcc(y=time_characteristic, sr=16000, n_mfcc=5)
+    mfcc = librosa.feature.mfcc(y=time_characteristic, sr=16000, n_mfcc=13)
     return mfcc
 
 
@@ -33,13 +33,13 @@ def compute_spectral_roloff(file):
 
 
 def foo(train_mfccs_, train_roloffs):
-    train_mfccs = np.array([mfccs[0] for mfccs in train_mfccs_])
     mfccs_ = []
     for sample in test_set:
-        for mfccs, roloff, label in zip(train_mfccs, train_roloffs, labels):
-            distance_between_mfccs = dtw(mfccs, compute_mfcc_from_file(sample)[0])
-            distance_between_roloffs = dtw(roloff, compute_spectral_roloff(sample))
-            mfccs_.append((distance_between_mfccs + distance_between_roloffs, label))
+        for mfccs, roloff, label in zip(train_mfccs_, train_roloffs, labels):
+            distance_between_mfccs = dtw(mfccs, compute_mfcc_from_file(sample).T)
+            # distance_between_roloffs = dtw(roloff, compute_spectral_roloff(sample))
+            mfccs_.append((distance_between_mfccs, label))
+            # mfccs_.append((distance_between_mfccs + distance_between_roloffs, label))
         lul = sorted(mfccs_, key=lambda x: x[0])
         print(lul)
         print(sample, Counter(elem[1] for elem in lul[:7]))
@@ -62,8 +62,8 @@ if __name__ == '__main__':
     for file in train_set:
         train_roloffs.append(compute_spectral_roloff(file))
         train_mfccs.append(compute_mfcc_from_file(file).T)
-    # train_mfccs: first dimension -- how many examples = 252. second dimension -- 2, how many mfcc, third dimension --
-    # 24, how many windows
+    # train_mfccs: first dimension -- how many examples = 252. second dimension -- 24 how many windows,
+    # third dimension n --, how many mfcc
     # print(train_mfccs[0][0], train_mfccs[1][0])
     # print(dtw(train_mfccs[0][0], train_mfccs[1][0]))
     # for i in range(5):
