@@ -7,7 +7,7 @@ import librosa
 import numpy as np
 from sklearn.neighbors import KNeighborsClassifier
 from tslearn.metrics import dtw
-
+import random
 
 def compute_mfcc_from_file(file):
     time_characteristic = create_time_characteristics_of_a_file(file)
@@ -32,17 +32,25 @@ def compute_spectral_roloff(file):
     return librosa.feature.spectral_rolloff(chars, sr=16000)[0]
 
 
-def foo(train_mfccs_, train_roloffs):
-    mfccs_ = []
+def recognize_speech(train_mfccs_, train_roloffs):
+    accuracy = 0
     for sample in test_set:
+        sample_label = sample.split("/")[-2]
+        distances = []
+        sample_mfcc = compute_mfcc_from_file(sample).T
+        # sample_roloff = compute_spectral_roloff(sample)
         for mfccs, roloff, label in zip(train_mfccs_, train_roloffs, labels):
-            distance_between_mfccs = dtw(mfccs, compute_mfcc_from_file(sample).T)
-            # distance_between_roloffs = dtw(roloff, compute_spectral_roloff(sample))
-            mfccs_.append((distance_between_mfccs, label))
+            distance_between_mfccs = dtw(mfccs, sample_mfcc)
+            # distance_between_roloffs = dtw(roloff, sample_roloff)
+            distances.append((distance_between_mfccs, label))
             # mfccs_.append((distance_between_mfccs + distance_between_roloffs, label))
-        lul = sorted(mfccs_, key=lambda x: x[0])
-        print(lul)
-        print(sample, Counter(elem[1] for elem in lul[:7]))
+        dist_list = sorted(distances, key=lambda x: x[0])
+        nearest_neighbours = Counter(elem[1] for elem in dist_list[:7])
+        print(dist_list)
+        print(sample, nearest_neighbours)
+        if sample_label == nearest_neighbours.most_common(1)[0][0]:
+            accuracy += 1
+    print("ACCURACY:", accuracy/len(test_set))
 
 
 if __name__ == '__main__':
@@ -50,8 +58,13 @@ if __name__ == '__main__':
     knn = KNeighborsClassifier()
     test_set = []
     labels = []
+    prefixes = set()
     for file in glob.glob("./*/*.WAV"):
-        if 'AF1K1' in file:
+        prefixes.add(file.split("/")[-1][:5])
+    # randomly choose ~30% of probes to test_set
+    test_prefixes = random.sample(prefixes, int(len(prefixes) * 0.3))
+    for file in glob.glob("./*/*.WAV"):
+        if file.split("/")[-1][:5] in test_prefixes:
             test_set.append(file)
         else:
             train_set.append(file)
@@ -67,5 +80,5 @@ if __name__ == '__main__':
     # print(train_mfccs[0][0], train_mfccs[1][0])
     # print(dtw(train_mfccs[0][0], train_mfccs[1][0]))
     # for i in range(5):
-    foo(train_mfccs, train_roloffs)
+    recognize_speech(train_mfccs, train_roloffs)
 
