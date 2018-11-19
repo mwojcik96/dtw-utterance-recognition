@@ -46,39 +46,36 @@ def recognize_speech(train_mfccs_, train_roloffs):
             # mfccs_.append((distance_between_mfccs + distance_between_roloffs, label))
         dist_list = sorted(distances, key=lambda x: x[0])
         nearest_neighbours = Counter(elem[1] for elem in dist_list[:7])
-        print(dist_list)
         print(sample, nearest_neighbours)
         if sample_label == nearest_neighbours.most_common(1)[0][0]:
             accuracy += 1
-    print("ACCURACY:", accuracy/len(test_set))
+        print(f"ACCURACY for {test_set[0]}: ", accuracy/len(test_set))
 
 
 if __name__ == '__main__':
-    train_set = []
-    knn = KNeighborsClassifier()
-    test_set = []
-    labels = []
     prefixes = set()
     for file in glob.glob("./*/*.WAV"):
         prefixes.add(file.split("/")[-1][:5])
     # randomly choose ~30% of probes to test_set
-    test_prefixes = random.sample(prefixes, int(len(prefixes) * 0.3))
-    for file in glob.glob("./*/*.WAV"):
-        if file.split("/")[-1][:5] in test_prefixes:
-            test_set.append(file)
-        else:
-            train_set.append(file)
-            labels.append(file.split("/")[-2])
-    # print(train_set[0])
-    train_mfccs = []
-    train_roloffs = []
-    for file in train_set:
-        train_roloffs.append(compute_spectral_roloff(file))
-        train_mfccs.append(compute_mfcc_from_file(file).T)
-    # train_mfccs: first dimension -- how many examples = 252. second dimension -- 24 how many windows,
-    # third dimension n --, how many mfcc
-    # print(train_mfccs[0][0], train_mfccs[1][0])
-    # print(dtw(train_mfccs[0][0], train_mfccs[1][0]))
-    # for i in range(5):
-    recognize_speech(train_mfccs, train_roloffs)
+    for index, _ in enumerate(glob.glob("./*/*.WAV")):
+        train_set = []
+        test_set = []
+        labels = []
+        for index2, example2 in enumerate(glob.glob("./*/*.WAV")):
+            if index2 == index:
+                test_set.append(example2)
+            else:
+                train_set.append(example2)
+                labels.append(example2.split("/")[-2])
+        train_mfccs = []
+        train_roloffs = []
+        for file in train_set:
+            train_roloffs.append(compute_spectral_roloff(file))
+            train_mfccs.append(compute_mfcc_from_file(file).T)
+        # train_mfccs: first dimension -- how many examples = 252. second dimension -- 24 how many windows,
+        # third dimension n --, how many mfcc
+        # print(train_mfccs[0][0], train_mfccs[1][0])
+        # print(dtw(train_mfccs[0][0], train_mfccs[1][0]))
+        # for i in range(5):
+        recognize_speech(train_mfccs, train_roloffs)
 
