@@ -2,12 +2,12 @@ import glob
 import struct
 import wave
 from collections import Counter
+from operator import itemgetter
 
 import librosa
 import numpy as np
-from sklearn.neighbors import KNeighborsClassifier
 from tslearn.metrics import dtw
-import random
+
 
 def compute_mfcc_from_file(file):
     time_characteristic = create_time_characteristics_of_a_file(file)
@@ -16,13 +16,13 @@ def compute_mfcc_from_file(file):
 
 
 def create_time_characteristics_of_a_file(file):
-    waveFile = wave.open(file, 'r')
-    rate = waveFile.getframerate()
-    length = waveFile.getnframes()
+    wave_file = wave.open(file, 'r')
+    # rate = wave_file.getframerate()
+    length = wave_file.getnframes()
     time_plot = []
     for i in range(0, length):
-        waveData = waveFile.readframes(1)
-        data = struct.unpack("<h", waveData)
+        wave_data = wave_file.readframes(1)
+        data = struct.unpack("<h", wave_data)
         time_plot.append(int(data[0]))
     return np.array(time_plot, dtype=np.float32)
 
@@ -32,50 +32,46 @@ def compute_spectral_roloff(file):
     return librosa.feature.spectral_rolloff(chars, sr=16000)[0]
 
 
-def recognize_speech(train_mfccs_, train_roloffs):
-    accuracy = 0
-    for sample in test_set:
-        sample_label = sample.split("/")[-2]
-        distances = []
-        sample_mfcc = compute_mfcc_from_file(sample).T
-        # sample_roloff = compute_spectral_roloff(sample)
-        for mfccs, roloff, label in zip(train_mfccs_, train_roloffs, labels):
-            distance_between_mfccs = dtw(mfccs, sample_mfcc)
-            # distance_between_roloffs = dtw(roloff, sample_roloff)
-            distances.append((distance_between_mfccs, label))
-            # mfccs_.append((distance_between_mfccs + distance_between_roloffs, label))
-        dist_list = sorted(distances, key=lambda x: x[0])
-        nearest_neighbours = Counter(elem[1] for elem in dist_list[:7])
-        print(sample, nearest_neighbours)
-        if sample_label == nearest_neighbours.most_common(1)[0][0]:
-            accuracy += 1
-        print(f"ACCURACY for {test_set[0]}: ", accuracy/len(test_set))
+def calculate_dict(mfcc_values, rolloff_values, names, labels):
+    final_dict = dict()
+    for i in names:
+        final_dict[i] = []
+    for id1, (mf1, ro1, nm1, lb1) in enumerate(zip(mfcc_values, rolloff_values, names, labels)):
+        for id2, (mf2, ro2, nm2, lb2) in enumerate(zip(mfcc_values, rolloff_values, names, labels)):
+            if id1 < id2:
+                current_dtw = dtw(mf1, mf2)
+                # current_dtw = dtw(mf1 + ro1, mf2 + ro2)
+                final_dict[nm1].append({"name": nm2, "label": lb2, "distance": current_dtw})
+                final_dict[nm2].append({"name": nm1, "label": lb1, "distance": current_dtw})
+    for final_key, final_item in final_dict.items():
+        final_dict[final_key] = sorted(final_item, key=itemgetter('distance'))
+        # print(key, len(final_dict[key]))
+    return final_dict
+
+
+def recognize_speech(vector, k=1):
+    nearest_neighbours = Counter(elem["label"] for elem in vector[:k])
+    return nearest_neighbours.most_common(1)[0][0]
 
 
 if __name__ == '__main__':
-    prefixes = set()
-    for file in glob.glob("./*/*.WAV"):
-        prefixes.add(file.split("/")[-1][:5])
-    # randomly choose ~30% of probes to test_set
-    for index, _ in enumerate(glob.glob("./*/*.WAV")):
-        train_set = []
-        test_set = []
-        labels = []
-        for index2, example2 in enumerate(glob.glob("./*/*.WAV")):
-            if index2 == index:
-                test_set.append(example2)
-            else:
-                train_set.append(example2)
-                labels.append(example2.split("/")[-2])
-        train_mfccs = []
-        train_roloffs = []
-        for file in train_set:
-            train_roloffs.append(compute_spectral_roloff(file))
-            train_mfccs.append(compute_mfcc_from_file(file).T)
-        # train_mfccs: first dimension -- how many examples = 252. second dimension -- 24 how many windows,
-        # third dimension n --, how many mfcc
-        # print(train_mfccs[0][0], train_mfccs[1][0])
-        # print(dtw(train_mfccs[0][0], train_mfccs[1][0]))
-        # for i in range(5):
-        recognize_speech(train_mfccs, train_roloffs)
-
+    mfcc_list = []
+    rolloff_list = []
+    name_list = []
+    label_list = []
+    for wav_name in glob.glob("./*/*.WAV"):
+        mfcc_list.append(compute_mfcc_from_file(wav_name).T)
+        rolloff_list.append(compute_spectral_roloff(wav_name))
+        name_list.append(wav_name.split("/")[-1])
+        label_list.append(wav_name.split("/")[-2])
+    dist_dict = calculate_dict(mfcc_list, rolloff_list, name_list, label_list)
+    for n in range(1, 11):
+        accuracy = 0
+        print("KNN for k =", n)
+        for key, item in dist_dict.items():
+            real = label_list[name_list.index(key)]
+            predicted = recognize_speech(item, n)
+            # print(key, "Real:", real, "Predicted:", predicted)
+            if real == predicted:
+                accuracy += 1
+        print("Accuracy:", accuracy / len(name_list))
